@@ -18,11 +18,16 @@
 
 const GEMINI_API_KEY = (typeof CONFIG !== 'undefined') ? CONFIG.GEMINI_API_KEY : '';
 
+// On localhost: call Gemini directly using the key from config.js
+// On Vercel:    call the /api/gemini proxy (key lives server-side, never exposed)
+const GEMINI_URL = window.location.hostname === 'localhost'
+    ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`
+    : `/api/gemini`;
+
 // ─── Global State ─────────────────────────────────────────────────────────────
-// All renderers read from this object. Never write to it from renderer files.
 const State = {
     mode: 'particles',
-    lastPrompt: '',          // remembered so Regenerate works without re-typing
+    lastPrompt: '',
     audioContext: null,
     analyser: null,
     audioSource: null,
@@ -30,7 +35,6 @@ const State = {
     strobeThreshold: 0.82,
     currentRenderer: null,
 
-    // Numeric params — intensity, density, complexity, palette
     params: {
         palette:         ["#00f2ff", "#7000ff", "#ff007b"],
         motion:          "wave",
@@ -40,25 +44,20 @@ const State = {
         shapeComplexity: 0.5
     },
 
-    // Visual language fields — set by Gemini, read by VisualLanguage helpers
     visual: {
-        motionStyle:    "wave",              // fluid | orbital | chaotic | wave | vortex
-        colorStyle:     "neon",              // neon | pastel | monochrome | iridescent
-        composition:    "spiral",            // spiral | sphere | galaxy | dna | lissajous | burst | torus | scattered | expanding | symmetric
-        effects:        ["glow", "trails"],  // glow | trails | distortion | pulse
-        rhythmResponse: "balanced"           // bass-heavy | balanced | high-reactive
+        motionStyle:    "wave",
+        colorStyle:     "neon",
+        composition:    "spiral",
+        effects:        ["glow", "trails"],
+        rhythmResponse: "balanced"
     },
 
-    // UI slider values — updated by sliders + applyParams()
     ui: { responsivity: 1.0, chaos: 0.5, energy: 0.5 }
 };
 
 // ─── VisualLanguage Interpreter ───────────────────────────────────────────────
-// Shared utility object. Renderer files call these — they never compute
-// motionStyle/colorStyle/composition logic themselves.
 const VisualLanguage = {
 
-    /** Returns audio multipliers based on rhythmResponse */
     getRhythmMults() {
         switch (State.visual.rhythmResponse) {
             case 'bass-heavy':    return { bass: 2.2, mids: 0.5, highs: 0.3 };
@@ -68,7 +67,6 @@ const VisualLanguage = {
         }
     },
 
-    /** Returns audio clamped to [0,1] after rhythmResponse scaling */
     getScaledAudio() {
         const m = this.getRhythmMults();
         return {
@@ -78,15 +76,10 @@ const VisualLanguage = {
         };
     },
 
-    /** Returns true if the named effect is in State.visual.effects */
     hasEffect(name) {
         return State.visual.effects.includes(name);
     },
 
-    /**
-     * Returns Three.js uniform values driven by visual language.
-     * Used by renderer-particles.js each frame.
-     */
     getThreeUniforms() {
         const jitter = ['chaotic', 'wave'].includes(State.visual.motionStyle)
             ? State.ui.chaos
@@ -100,23 +93,6 @@ const VisualLanguage = {
 };
 
 // ─── Gemini API ───────────────────────────────────────────────────────────────
-/**
- * Sends the user's creative prompt to Gemini and returns a visual config object.
- * Returns null on failure (caller should keep existing State.params).
- *
- * Schema returned:
- * {
- *   palette:         [hex, hex, hex]
- *   motionStyle:     "fluid | orbital | chaotic | wave | vortex"
- *   colorStyle:      "neon | pastel | monochrome | iridescent"
- *   composition:     "centered | scattered | symmetric | expanding"
- *   effects:         ["glow", "trails", "distortion", "pulse"]  (1-3 items)
- *   rhythmResponse:  "bass-heavy | balanced | high-reactive"
- *   intensity:       0.0-1.0
- *   particleDensity: 0.0-1.0
- *   shapeComplexity: 0.0-1.0
- * }
- */
 async function fetchVisualParams(prompt) {
     const systemPrompt = `You are a VJ intelligence that translates creative prompts into precise visual configurations.
 Return ONLY a JSON object — no markdown, no explanation, no backticks.
@@ -126,7 +102,7 @@ Schema:
   "palette": ["#hex1", "#hex2", "#hex3"],
   "motionStyle": "fluid | orbital | chaotic | wave | vortex",
   "colorStyle": "neon | pastel | monochrome | iridescent",
-  "composition": "centered | scattered | symmetric | expanding",
+  "composition": "spiral | sphere | galaxy | dna | lissajous | burst | torus",
   "effects": ["glow", "trails", "distortion", "pulse"],
   "rhythmResponse": "bass-heavy | balanced | high-reactive",
   "intensity": 0.0-1.0,
@@ -135,27 +111,27 @@ Schema:
 }
 
 Rules:
-- palette: REQUIRED — 3 hex colors that are unmistakably tied to the prompt's mood/subject.
+- palette: REQUIRED — 3 hex colors unmistakably tied to the prompt's mood/subject.
     Pick a PRIMARY color that defines the whole look, then 2 supporting colors in the same family.
     The primary color (palette[0]) should be the most dominant and saturated.
     Never use default purple/pink/yellow unless the prompt explicitly calls for them.
+    NEVER use black or near-black (e.g. #000000, #111111) — background is already black.
     Examples:
-      "ocean"       → ["#0af0e0", "#0055cc", "#00ffaa"]   (teals, deep blue, aqua)
-      "fire"        → ["#ff4400", "#ffaa00", "#ff0022"]   (orange-red, amber, crimson)
-      "forest"      → ["#22ff88", "#005533", "#aaff44"]   (bright green, dark green, lime)
-      "midnight"    → ["#4400ff", "#0011aa", "#8800ff"]   (deep violet, navy, purple)
-      "rave"        → ["#ff00cc", "#00ffcc", "#ffff00"]   (hot pink, acid green, yellow)
-      "glitch"      → ["#00ffff", "#ff00ff", "#ffffff"]   (cyan, magenta, white)
-      "blood moon"  → ["#ff2200", "#880000", "#ff6600"]   (red, dark red, orange)
-    Always make colors vivid and high-contrast. Muted/grey palettes only if prompt says "fog", "ash", "ghost", etc.
-    NEVER use black or near-black (e.g. #000000, #111111, #0a0a0a) — the background is already black so black particles are invisible.
+      "ocean"       → ["#0af0e0", "#0055cc", "#00ffaa"]
+      "fire"        → ["#ff4400", "#ffaa00", "#ff0022"]
+      "forest"      → ["#22ff88", "#005533", "#aaff44"]
+      "midnight"    → ["#4400ff", "#0011aa", "#8800ff"]
+      "rave"        → ["#ff00cc", "#00ffcc", "#ffff00"]
+      "glitch"      → ["#00ffff", "#ff00ff", "#ffffff"]
+      "blood moon"  → ["#ff2200", "#880000", "#ff6600"]
+    Always make colors vivid and high-contrast.
 - motionStyle: REQUIRED — must always be chosen. Pick the one that matches the emotional energy of the prompt.
-    fluid   = calm, meditative, liquid, dreamy, underwater, ambient → gentle drifting particles
-    orbital = cosmic, celestial, planets, orbits, gravity, rotation → circular sweeping paths
-    chaotic = glitch, broken, storm, panic, noise, industrial, punk → particles shake apart
-    wave    = music, rhythm, pulse, beach, signal, frequency, radio → rippling sine motion
-    vortex  = hypnotic, spiral, drain, black hole, trance, spinning → inward/outward pull
-    Mood anchors (use as reference, not hard rules):
+    fluid   = calm, meditative, liquid, dreamy, underwater, ambient
+    orbital = cosmic, celestial, planets, orbits, gravity, rotation
+    chaotic = glitch, broken, storm, panic, noise, industrial, punk
+    wave    = music, rhythm, pulse, beach, signal, frequency, radio
+    vortex  = hypnotic, spiral, drain, black hole, trance, spinning
+    Mood anchors:
       "ocean" → fluid, "rave" → chaotic or wave, "galaxy" → orbital,
       "meditation" → fluid or orbital, "glitch" → chaotic, "heartbeat" → wave,
       "black hole" → vortex, "forest wind" → fluid, "lightning" → chaotic
@@ -164,8 +140,8 @@ Rules:
     pastel      = soft, dreamlike, kawaii, gentle, watercolor prompts
     iridescent  = oil slick, holographic, prism, soap bubble, aurora prompts
     monochrome  = minimal, noir, ghost, fog, architectural prompts
-- composition (particle cloud shape — subtle density hint, not a wireframe):
-    spiral     = coil / helix energy (default, works with most prompts)
+- composition (particle cloud shape):
+    spiral     = coil / helix energy (default)
     sphere     = cosmic, planet, bubble, atom, orb prompts
     galaxy     = space, milky way, cosmic dust, nebula prompts
     dna        = biological, science, genetic, tech, helix prompts
@@ -173,29 +149,26 @@ Rules:
     burst      = explosion, firework, radiant, sun, impact prompts
     torus      = portal, donut, ring, loop, infinity prompts
 - effects: choose 1-3. Always include at least one.
-    glow       = additive blending — neon/cosmic prompts, overlapping particles bloom
-    trails     = long motion blur — fast motion, streaks, comet, speed prompts
-    distortion = noise warp — glitch, corruption, heat, mirage prompts
-    pulse      = size beats with bass — music, heartbeat, dance, bass-heavy prompts
+    glow       = additive blending — neon/cosmic prompts
+    trails     = long motion blur — speed, comet, streaks prompts
+    distortion = noise warp — glitch, corruption, heat prompts
+    pulse      = size beats with bass — music, heartbeat, dance prompts
 - rhythmResponse:
-    bass-heavy   = kicks dominate (x2.2 bass multiplier)
-    balanced     = all bands equal
+    bass-heavy    = kicks dominate (x2.2 bass multiplier)
+    balanced      = all bands equal
     high-reactive = hats/highs dominate (x2.5 highs multiplier)
 - intensity: 0=subtle audio response, 1=explosive
 - particleDensity: 0=sparse, 1=dense cloud
 - shapeComplexity: 0=simple, 1=intricate`;
 
     try {
-        const response = await fetch(
-            ``/api/gemini``,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: `${systemPrompt}\n\nUser prompt: "${prompt}"` }] }]
-                })
-            }
-        );
+        const response = await fetch(GEMINI_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: `${systemPrompt}\n\nUser prompt: "${prompt}"` }] }]
+            })
+        });
         const data    = await response.json();
         const rawText = data.candidates[0].content.parts[0].text;
         const cleaned = rawText.replace(/```json|```/g, '').trim();
@@ -207,13 +180,7 @@ Rules:
 }
 
 // ─── Apply Params ─────────────────────────────────────────────────────────────
-/**
- * Merges a Gemini response object into State.params and State.visual,
- * then derives ui slider values from the visual language fields.
- * Also syncs the HTML sliders to reflect the AI's intent.
- */
 function applyParams(p) {
-    // Numeric params
     Object.assign(State.params, {
         palette:         p.palette         || State.params.palette,
         intensity:       p.intensity       ?? State.params.intensity,
@@ -221,7 +188,6 @@ function applyParams(p) {
         shapeComplexity: p.shapeComplexity ?? State.params.shapeComplexity
     });
 
-    // Visual language fields
     Object.assign(State.visual, {
         motionStyle:    p.motionStyle    || State.visual.motionStyle,
         colorStyle:     p.colorStyle     || State.visual.colorStyle,
@@ -230,8 +196,6 @@ function applyParams(p) {
         rhythmResponse: p.rhythmResponse || State.visual.rhythmResponse
     });
 
-    // Gemini's motionStyle presets chaos; intensity presets responsivity; energy stays mid
-    // Users can override any of these live with the sliders after Gemini sets them
     const CHAOS_PRESET = {
         fluid:   0.2,
         orbital: 0.3,
@@ -241,15 +205,13 @@ function applyParams(p) {
     };
 
     State.ui.chaos        = CHAOS_PRESET[p.motionStyle] ?? 0.5;
-    State.ui.responsivity = 0.4 + (p.intensity ?? 0.7) * 1.2;  // 0.4 (subtle) → 1.6 (explosive)
-    State.ui.energy       = 0.3 + (p.intensity ?? 0.7) * 0.7;  // 0.3 (calm) → 1.0 (active)
+    State.ui.responsivity = 0.4 + (p.intensity ?? 0.7) * 1.2;
+    State.ui.energy       = 0.3 + (p.intensity ?? 0.7) * 0.7;
 
-    // Sync HTML sliders to reflect Gemini's choices
     document.getElementById('param-responsivity').value = State.ui.responsivity;
     document.getElementById('param-chaos').value        = State.ui.chaos;
     document.getElementById('param-energy').value       = State.ui.energy;
 
-    // Update status label
     const label = `${State.visual.motionStyle} · ${State.visual.colorStyle} · [${State.visual.effects.join(', ')}]`;
     document.getElementById('current-style-name').textContent = `Style: ${label}`;
 }
@@ -290,40 +252,34 @@ function updateAudioData() {
 }
 
 // ─── Mode Switching ───────────────────────────────────────────────────────────
-/**
- * Tears down the current renderer and starts a new one.
- * Shaders and geometries rebuild here, so Gemini style changes take effect
- * on the next switchMode() call (triggered by Regenerate or manual tab switch).
- */
 function switchMode(newMode) {
     if (State.currentRenderer) {
-        if (State.currentRenderer.remove)  State.currentRenderer.remove();   // p5 instance
-        if (State.currentRenderer.destroy) State.currentRenderer.destroy();  // Three.js
+        if (State.currentRenderer.remove)  State.currentRenderer.remove();
+        if (State.currentRenderer.destroy) State.currentRenderer.destroy();
     }
     document.getElementById('canvas-container').innerHTML = '';
     State.mode = newMode;
 
-    if      (newMode === 'particles')                        State.currentRenderer = initParticlesRenderer();
-    else if (newMode === 'blob')                             State.currentRenderer = initBlobRenderer();
-    else if (newMode === 'waves' || newMode === 'shape')     State.currentRenderer = initWaveformRenderer(newMode);
+    if      (newMode === 'particles')                    State.currentRenderer = initParticlesRenderer();
+    else if (newMode === 'blob')                         State.currentRenderer = initBlobRenderer();
+    else if (newMode === 'waves' || newMode === 'shape') State.currentRenderer = initWaveformRenderer(newMode);
 }
 
 // ─── UI Event Listeners ───────────────────────────────────────────────────────
 
-// Start — fetch Gemini params if prompt given, init audio, launch
 document.getElementById('start-btn').addEventListener('click', async () => {
     const prompt    = document.getElementById('visual-prompt').value.trim();
     const audioMode = document.getElementById('audio-select').dataset.mode || 'select';
     const btn       = document.getElementById('start-btn');
 
     if (prompt) {
-        State.lastPrompt    = prompt;
-        btn.textContent = 'Reading your vibe...';
-        btn.disabled    = true;
-        const aiParams  = await fetchVisualParams(prompt);
+        State.lastPrompt = prompt;
+        btn.textContent  = 'Reading your vibe...';
+        btn.disabled     = true;
+        const aiParams   = await fetchVisualParams(prompt);
         if (aiParams) applyParams(aiParams);
-        btn.textContent = 'START VISUALIZING';
-        btn.disabled    = false;
+        btn.textContent  = 'START VISUALIZING';
+        btn.disabled     = false;
     }
 
     if (audioMode === 'mic') await initAudio('mic');
@@ -334,10 +290,8 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     switchMode('particles');
 });
 
-// Back
 document.getElementById('back-btn').addEventListener('click', () => location.reload());
 
-// Mode tabs
 document.querySelectorAll('.mode-btn').forEach(btn =>
     btn.addEventListener('click', e => {
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -346,7 +300,6 @@ document.querySelectorAll('.mode-btn').forEach(btn =>
     })
 );
 
-// Regenerate — re-fetch Gemini and restart renderer so shaders rebuild
 document.getElementById('regen-btn').addEventListener('click', async () => {
     const typed  = document.getElementById('visual-prompt')?.value?.trim() || '';
     const prompt = typed || State.lastPrompt;
@@ -356,7 +309,7 @@ document.getElementById('regen-btn').addEventListener('click', async () => {
         return;
     }
 
-    if (typed) State.lastPrompt = typed;  // update memory if user typed something new
+    if (typed) State.lastPrompt = typed;
 
     const btn       = document.getElementById('regen-btn');
     btn.textContent = 'Thinking...';
@@ -372,7 +325,6 @@ document.getElementById('regen-btn').addEventListener('click', async () => {
     btn.disabled    = false;
 });
 
-// Audio source toggles
 function setAudioMode(mode) {
     document.getElementById('audio-select').dataset.mode = mode;
     document.querySelectorAll('.audio-source-btn').forEach(b => b.classList.remove('active'));
@@ -387,19 +339,16 @@ function setAudioMode(mode) {
 document.getElementById('mic-toggle').addEventListener('click',    () => setAudioMode('mic'));
 document.getElementById('select-toggle').addEventListener('click', () => setAudioMode('select'));
 
-// Sliders — write directly to State.ui, renderers read every frame
 document.getElementById('param-responsivity').addEventListener('input', e => State.ui.responsivity = parseFloat(e.target.value));
 document.getElementById('param-chaos').addEventListener('input',        e => State.ui.chaos         = parseFloat(e.target.value));
 document.getElementById('param-energy').addEventListener('input',       e => State.ui.energy        = parseFloat(e.target.value));
 
-// How I Built This — tap to toggle on mobile (no hover on touch)
-document.querySelector('.how-built-label').addEventListener('click', () => {
+document.querySelector('.how-built-label')?.addEventListener('click', () => {
     if (window.innerWidth <= 600) {
-        document.getElementById('how-built').classList.toggle('open');
+        document.getElementById('how-built')?.classList.toggle('open');
     }
 });
 
-// Fullscreen
 document.getElementById('fullscreen-btn').addEventListener('click', () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
     else document.exitFullscreen();
