@@ -392,6 +392,13 @@ document.getElementById('param-responsivity').addEventListener('input', e => Sta
 document.getElementById('param-chaos').addEventListener('input',        e => State.ui.chaos         = parseFloat(e.target.value));
 document.getElementById('param-energy').addEventListener('input',       e => State.ui.energy        = parseFloat(e.target.value));
 
+// How I Built This — tap to toggle on mobile (no hover on touch)
+document.querySelector('.how-built-label').addEventListener('click', () => {
+    if (window.innerWidth <= 600) {
+        document.getElementById('how-built').classList.toggle('open');
+    }
+});
+
 // Fullscreen
 document.getElementById('fullscreen-btn').addEventListener('click', () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
