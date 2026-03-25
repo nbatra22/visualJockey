@@ -16,7 +16,7 @@
  *   renderer-waveform.js   → initWaveformRenderer(mode)
  */
 
-const GEMINI_API_KEY = "";
+const GEMINI_API_KEY = CONFIG.GEMINI_API_KEY;
 
 // ─── Global State ─────────────────────────────────────────────────────────────
 // All renderers read from this object. Never write to it from renderer files.
