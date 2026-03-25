@@ -20,7 +20,8 @@ const GEMINI_API_KEY = (typeof CONFIG !== 'undefined') ? CONFIG.GEMINI_API_KEY :
 
 // On localhost: call Gemini directly using the key from config.js
 // On Vercel:    call the /api/gemini proxy (key lives server-side, never exposed)
-const GEMINI_URL = window.location.hostname === 'localhost'
+const IS_LOCAL = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const GEMINI_URL = IS_LOCAL
     ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`
     : `/api/gemini`;
 
