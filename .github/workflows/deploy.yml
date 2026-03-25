@@ -10,8 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject Gemini API key into app.js
-        run: sed -i "s/const GEMINI_API_KEY = \".*\"/const GEMINI_API_KEY = \"${{ secrets.GEMINI_API_KEY }}\"/" app.js
+      - name: Inject Gemini API key into config.js
+        run: |
+          echo "const CONFIG = { GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}' };" > config.js
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
