@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI VJ - Visual Jockey Tool</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simplex-noise@2.4.0/simplex-noise.min.js"></script>
+</head>
+<body>
+
+    <!-- Screen 1: Entry/Setup -->
+    <div id="setup-screen" class="overlay-screen">
+
+        <!-- How I Built This -->
+        <div id="how-built">
+            <span class="how-built-label">How I built this</span>
+            <div class="how-built-card">
+                <h3>How I Built This</h3>
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+            </div>
+        </div>
+
+        <div class="content-box">
+            <h1>AI VISUAL JOCKEY</h1>
+            <p class="subtitle">Transform prompts into reactive visuals</p>
+            
+            <div class="input-group">
+                <label>Creative Prompt</label>
+                <textarea id="visual-prompt" placeholder="e.g. 'Meditative and calm elephants'"></textarea>
+                <p class="prompt-suggestions-label">My favorite prompts:</p>
+                <div class="prompt-suggestions">
+                    <button class="suggestion-btn" onclick="document.getElementById('visual-prompt').value = this.textContent">Glitchy neon ocean</button>
+                    <button class="suggestion-btn" onclick="document.getElementById('visual-prompt').value = this.textContent">Happy esoteric apple</button>
+                    <button class="suggestion-btn" onclick="document.getElementById('visual-prompt').value = this.textContent">Hypnotic black hole spiral</button>
+                    <button class="suggestion-btn" onclick="document.getElementById('visual-prompt').value = this.textContent">Industrial techno rave</button>
+                    <button class="suggestion-btn" onclick="document.getElementById('visual-prompt').value = this.textContent">Soft aurora borealis floating</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Audio Source</label>
+                <div class="audio-options">
+                    <button id="select-toggle" class="audio-source-btn active">Select Audio</button>
+                    <button id="mic-toggle" class="audio-source-btn">Microphone</button>
+                </div>
+                <div id="select-panel" class="audio-panel">
+                    <select id="audio-select">
+                        <option value="inputAudios/sophiaStel.mp3">I'll Take It - Sophia Stel</option>
+                        <option value="inputAudios/noPressure.mp3">No Pressure - 2charm</option>
+                        <option value="inputAudios/Concorde.mp3">Concorde - Yune Pinku</option>
+                        <option value="inputAudios/rambaHo.mp3">Ramba Ho - Sashwat Sachdev</option>
+                        <option value="inputAudios/drunkOnArrival.mp3">Drunk On Arrival - Meat Computer</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="start-btn" class="primary-btn">START VISUALIZING</button>
+        </div>
+    </div>
+
+    <!-- Screen 2: Performance Mode -->
+    <div id="vj-screen" class="hidden">
+        <div id="canvas-container"></div>
+
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <button id="back-btn">← Back</button>
+            <div class="mode-selector">
+                <button class="mode-btn active" data-mode="particles">Particles</button>
+                <button class="mode-btn" data-mode="waves">Waveform</button>
+                <button class="mode-btn" data-mode="blob">3D Blob</button>
+            </div>
+            <button id="fullscreen-btn">⛶ Fullscreen</button>
+        </div>
+
+        <!-- Controls Side Panel -->
+        <div class="controls-panel">
+            <div class="control-group">
+                <label>Responsivity</label>
+                <input type="range" id="param-responsivity" min="0" max="2" step="0.05" value="1">
+            </div>
+            <div class="control-group">
+                <label>Chaos</label>
+                <input type="range" id="param-chaos" min="0" max="2" step="0.05" value="0.5">
+            </div>
+            <div class="control-group">
+                <label>Energy</label>
+                <input type="range" id="param-energy" min="0" max="1" step="0.05" value="0.5">
+            </div>
+            <button id="regen-btn">Regenerate Style</button>
+            
+            <div class="status-indicator">
+                <span id="current-style-name">Style: Default</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer-particles.js"></script>
+    <script src="renderer-blob.js"></script>
+    <script src="renderer-waveform.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
