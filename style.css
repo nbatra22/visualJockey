@@ -124,8 +124,8 @@ canvas { display: block; }
 
 /* How I Built This */
 #how-built {
-    position: absolute; bottom: 24px; right: 24px; z-index: 100;
-    display: flex; flex-direction: column; align-items: flex-end;
+    position: absolute; top: 50%; right: 24px; z-index: 100;
+    transform: translateY(-50%);
 }
 
 @media (max-width: 600px) {
@@ -152,14 +152,16 @@ canvas { display: block; }
     opacity: 0.5; cursor: default; padding: 4px 8px;
     border-bottom: 1px solid rgba(255,255,255,0.2);
     transition: opacity 0.2s;
+    white-space: nowrap;
 }
 
 .how-built-card {
     background: var(--panel); border: 1px solid rgba(255,255,255,0.15);
     backdrop-filter: blur(12px); border-radius: 8px;
-    padding: 20px; width: 280px; margin-top: 8px;
+    padding: 20px; width: 340px;
+    position: absolute; top: 50%; right: 0;
+    transform: translateY(-50%) translateX(8px);
     opacity: 0; pointer-events: none;
-    transform: translateY(8px);
     transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
@@ -177,5 +179,5 @@ canvas { display: block; }
 
 #how-built:hover .how-built-label { opacity: 1; }
 #how-built:hover .how-built-card {
-    opacity: 1; pointer-events: auto; transform: translateY(0);
+    opacity: 1; pointer-events: auto; transform: translateY(-50%) translateX(0);
 }

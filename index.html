@@ -20,9 +20,26 @@
             <span class="how-built-label">How I built this</span>
             <div class="how-built-card">
                 <h3>How I Built This</h3>
-                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-                <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-                <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+                <p>
+                    My first step for this project was implementing the audio analysis engine.
+                    Here, I used the <b>Web Audio API</b> to extract frequency, bass, rhythm and musicality. 
+                    For the accompanying visual layer, I started with initial p5.js sketches in the "Waveform" environment.
+                    Eventually I refined these sketches and also added high-performance 3D rendering using <b>Three.js</b> and 
+                    <b>Simplex-noise</b> for the "Particles" and "3D Blob" environments.
+                </p>
+                <p>
+                    My next step was the AI layer. Here I utilized <b>Google AI Studio</b> to architect a 
+                    system prompt for the <b>Gemini 2.5 Flash Lite Model API</b>. 
+                    I use Gemini as a real-time director: analyzing the user’s prompt for sentiment and mood
+                    and manipulating the mathematical parameters of each animation environment. 
+                    To view the raw animations without AI manipulation, run the application without any user prompt. 
+                </p>
+                <p>
+                    My initial prototype asked Gemini to generate an entire, injectable rendering script 
+                    from scratch. However, the results lacked both soul and reliability causing me to scrap this idea.
+                    I also explored Google's <b>Imagen tool</b> for vector-based images and animations, but found the 
+                    outputs felt tacky and disconnected from the audio. 
+                </p>
             </div>
         </div>
 
