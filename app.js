@@ -344,9 +344,17 @@ document.getElementById('param-responsivity').addEventListener('input', e => Sta
 document.getElementById('param-chaos').addEventListener('input',        e => State.ui.chaos         = parseFloat(e.target.value));
 document.getElementById('param-energy').addEventListener('input',       e => State.ui.energy        = parseFloat(e.target.value));
 
-document.querySelector('.how-built-label')?.addEventListener('click', () => {
-    if (window.innerWidth <= 600) {
+document.querySelector('.how-built-label')?.addEventListener('click', (e) => {
+    if (window.innerWidth <= 1024) {
+        e.stopPropagation();
         document.getElementById('how-built')?.classList.toggle('open');
+    }
+});
+
+document.addEventListener('click', (e) => {
+    const howBuilt = document.getElementById('how-built');
+    if (howBuilt && !howBuilt.contains(e.target) && howBuilt.classList.contains('open')) {
+        howBuilt.classList.remove('open');
     }
 });
 
